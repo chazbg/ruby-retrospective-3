@@ -4,9 +4,7 @@ module StringUtils
   end
 
   def StringUtils.stripSplit(string, delimeters)
-    tokensArray = []
-    tokensArray = string.split delimeters
-    tokensArray.each { |line| line.strip!}
+    string.split(delimeters).each { |line| line.strip! }
   end
 end
 
@@ -31,11 +29,11 @@ class Task < Hash
   end
 
   def filterTaskHelper(container)
-    shouldInclude = container.include.all? { |c, v| checkInclude(self[c], v) }
-    shouldInclude &= container.exclude.all? { |c, v| checkExclude(self[c], v) }
+    shouldInclude = container.include.all? { |c, v| includes?(self[c], v) }
+    shouldInclude &= container.exclude.all? { |c, v| excludes?(self[c], v) }
   end
 
-  def checkInclude(a, b)
+  def includes?(a, b)
     if a.is_a?(Array)
       (a & b).size == b.size
     else
@@ -43,7 +41,7 @@ class Task < Hash
     end
   end
 
-  def checkExclude(a, b)
+  def excludes?(a, b)
     if a.is_a?(Array)
       a & b == []
     else
@@ -96,28 +94,20 @@ class Criteria
     @arrayOfCriterias << newCriteria
   end
 
-  def self.status(s)
-    Criteria.new(status: s)
-  end
-
-  def self.priority(p)
-    Criteria.new(priority: p)
-  end
-
-  def self.tags(t)
-    Criteria.new(tags: t)
+  def self.method_missing(name, *args)
+    case name.to_s
+      when "status" then Criteria.new(status: args[0])
+      when "priority" then Criteria.new(priority: args[0])
+      when "tags" then Criteria.new(tags: args[0])
+    end
   end
 
   def conjunct(element)
-    criterias = []
-    @arrayOfCriterias.each { |criteria| criterias << (criteria & element) }
-    criterias
+    @arrayOfCriterias.map { |criteria| criteria & element }
   end
 
   def &(other)
-    criterias = []
-    other.arrayOfCriterias.each { |criteria| criterias += conjunct criteria }
-    @arrayOfCriterias = criterias
+    other.arrayOfCriterias.each { |c| @arrayOfCriterias += conjunct c }
     self
   end
 
@@ -147,16 +137,12 @@ class TodoList
     @tasks.each(&block)
   end
 
-  def tasks_todo
-    @tasks.select { |task| task[:status] == :todo } .size
-  end
-
-  def tasks_in_progress
-    @tasks.select { |task| task[:status] == :current } .size
-  end
-
-  def tasks_completed
-    @tasks.select { |task| task[:status] == :done } .size
+  def method_missing(name)
+    case name.to_s
+      when "tasks_todo" then select_by_status :todo
+      when "tasks_in_progress" then select_by_status :current
+      when "tasks_completed" then select_by_status :done
+    end
   end
 
   def self.parse(text)
@@ -179,39 +165,10 @@ class TodoList
     list.each { |task| newTasks |= [task] }
     self.class.new(newTasks)
   end
+
+  private
+
+  def select_by_status(status)
+    @tasks.select { |task| task[:status] == status } .size
+  end
 end
-
-text_input =       "TODO    | Eat spaghetti.               | High   | food, happiness
-TODO    | Get 8 hours of sleep.        | Low    | health
-CURRENT | Party animal.                | Normal | socialization
-CURRENT | Grok Ruby.                   | High   | development, ruby
-DONE    | Have some tea.               | Normal |
-TODO    | Destroy Facebook and Google. | High   | save humanity, conspiracy
-DONE    | Do the 5th Ruby challenge.   | High   | ruby course, FMI, development, ruby
-TODO    | Find missing socks.          | Low    |"
-todo_list = TodoList.parse(text_input)
-
-# todo_list.each { |task| p task}
-
-# p todo_list.completed?
-# p todo_list.tasks_todo
-# p todo_list.tasks_completed
-# p todo_list.tasks_in_progress
-# p "------------------"
-# todo_list.adjoin(TodoList.new(todo_list.tasks)).each { |task| p task }
-# p "------------------"
-# p Criteria.priority(:high)
-# p "------------------"
-# p Criteria.priority(:low) | Criteria.priority(:high)
-# p "------------------"
-# p Criteria.priority(:low) | Criteria.priority(:high) & Criteria.tags(["wtf"]) | Criteria.status(:done) | Criteria.status(:current)
-# p "------------------"
-# p Criteria.priority(:high) & Criteria.tags(["development"])
-# todo_list.filter(Criteria.priority(:high) & Criteria.tags(["development", "ruby"])).each { |t| p t} #Criteria.priority(:high).each { |t| p t}
-# food, doge, herp sad
-development = todo_list.filter (Criteria.tags(['development']))
-development.each { |t| p t }
-food = todo_list.filter (Criteria.tags(['food']))
-food.each { |t| p t }
-adjoined = development.adjoin food
-adjoined.each { |t| p t }

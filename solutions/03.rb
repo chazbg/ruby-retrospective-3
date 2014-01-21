@@ -31,8 +31,8 @@ module Graphics
                   </html>\n"
 
       def render(canvas)
-        HTML_HEADER + (0...canvas.height).to_a.map do |y|
-          (0...canvas.width).to_a.map do |x|
+        HTML_HEADER + (0...canvas.height).map do |y|
+          (0...canvas.width).map do |x|
             pixel_to_html canvas, x, y
           end.join
         end.join("<br>\n") + HTML_FOOTER
@@ -47,8 +47,8 @@ module Graphics
 
     class Ascii
       def render(canvas)
-        (0...canvas.height).to_a.map do |y|
-          (0...canvas.width).to_a.map do |x|
+        (0...canvas.height).map do |y|
+          (0...canvas.width).map do |x|
             pixel_to_ascii canvas, x, y
           end.join
         end.join "\n"
@@ -61,6 +61,7 @@ module Graphics
       end
     end
   end
+
   class Point
     attr_reader :x, :y, :plot
 
@@ -102,13 +103,11 @@ module Graphics
 
     private
 
-    def initialize_line_ends(point_a, point_b)
-      if point_a.x != point_b.x
-        @from = point_a.x <= point_b.x ? point_a : point_b
-        @to = point_a.x > point_b.x ? point_a : point_b
+    def initialize_line_ends(from, to)
+      if from.x > to.x or (from.x == to.x and from.y > to.y)
+        @from, @to = to, from
       else
-        @from = point_a.y <= point_b.y ? point_a : point_b
-        @to = point_a.y > point_b.y ? point_a : point_b
+        @from, @to = from, to
       end
     end
 
@@ -161,13 +160,11 @@ module Graphics
 
     private
 
-    def initialize_ends(point_a, point_b)
-      if point_a.x != point_b.x
-        @left = point_a.x <= point_b.x ? point_a : point_b
-        @right = point_a.x > point_b.x ? point_a : point_b
+    def initialize_ends(from, to)
+      if from.x > to.x or (from.x == to.x and from.y > to.y)
+        @left, @right = to, from
       else
-        @left = point_a.y <= point_b.y ? point_a : point_b
-        @right = point_a.y > point_b.y ? point_a : point_b
+        @left, @right = from, to
       end
     end
 
@@ -198,15 +195,15 @@ module Graphics
     def initialize(width, height)
       @width = width
       @height = height
-      @pixel_matrix = Hash.new
+      @canvas = {}
     end
 
     def set_pixel(x, y)
-      @pixel_matrix[Point.new(x, y)] = true
+      @canvas[Point.new(x, y)] = true
     end
 
     def pixel_at?(x, y)
-      @pixel_matrix[Point.new(x, y)]
+      @canvas[Point.new(x, y)]
     end
 
     def draw(object)
@@ -218,37 +215,4 @@ module Graphics
       renderer.render self
     end
   end
-end
-
-d = Graphics::Canvas.new(10,10)
-#d.set_pixel(1,0)
-#p d.pixel_at?(1,1), d.pixel_at?(1,0)
-#d.draw Graphics::Point.new(3,2)
-#d.render_as(Graphics::Renderers::Html)
-#p Graphics::Point.new(3,2).eql? Graphics::Point.new(3,2)
-rectangle = Graphics::Rectangle.new(Graphics::Point.new(3,2), Graphics::Point.new(4,5))
-#p line.from.x, line.from.y, line.to.x, line.to.y
-#p rectangle.hash
-#d.draw rectangle
-#d.render_as(Graphics::Renderers::Ascii)
-
-module Graphics
-  canvas = Canvas.new 30, 30
-
-  # Door frame and window
-  canvas.draw Rectangle.new(Point.new(3, 3), Point.new(18, 12))
-  canvas.draw Rectangle.new(Point.new(1, 1), Point.new(20, 28))
-
-  # Door knob
-  canvas.draw Line.new(Point.new(4, 15), Point.new(7, 15))
-  canvas.draw Point.new(4, 16)
-
-  # Big "R"
-  canvas.draw Line.new(Point.new(8, 5), Point.new(8, 10))
-  canvas.draw Line.new(Point.new(9, 5), Point.new(12, 5))
-  canvas.draw Line.new(Point.new(9, 7), Point.new(12, 7))
-  canvas.draw Point.new(13, 6)
-  canvas.draw Line.new(Point.new(12, 8), Point.new(13, 10))
-
-  puts canvas.render_as(Renderers::Ascii)
 end

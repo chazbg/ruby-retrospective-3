@@ -1,27 +1,37 @@
 module Asm
   class Evaluator
+    JUMP_OPERATIONS = { jmp: true,
+                        je: '==',
+                        jne: '!=',
+                        jl: '<',
+                        jle: '<=',
+                        jg: '>',
+                        jge: '>='
+                      }.freeze
+
+    REGISTER_OPERATIONS = { mov: '=',
+                            inc: '+',
+                            dec: '-',
+                            cmp: '=='
+                          }.freeze
+
     def initialize(instruction_sequence, labels)
       @current_instruction = 0
       @registers = { ax: 0, bx: 0, cx: 0, dx: 0 }
 
       @labels = labels
       @instruction_sequence = instruction_sequence
-
-      @jump_operations = { jmp: true, je: '==', jne: '!=', jl: '<',
-        jle: '<=', jg: '>', jge: '>=' }.freeze
-
-      @register_operations = { mov: '=', inc: '+', dec: '-', cmp: '==' }
     end
 
     def evaluate()
       while @current_instruction < @instruction_sequence.length
         instruction = @instruction_sequence[@current_instruction]
 
-        if nil != @jump_operations[instruction['name']]
-          jump @jump_operations[instruction['name']], *instruction['args']
+        if nil != JUMP_OPERATIONS[instruction['name']]
+          jump JUMP_OPERATIONS[instruction['name']], *instruction['args']
 
-        elsif nil != @register_operations[instruction['name']]
-          calculate @register_operations[instruction['name']], *instruction['args']
+        elsif nil != REGISTER_OPERATIONS[instruction['name']]
+          calculate REGISTER_OPERATIONS[instruction['name']], *instruction['args']
 
         else
           send instruction['name'], *instruction['args']
@@ -33,19 +43,13 @@ module Asm
       @registers
     end
 
-    def value_of(source)
-      case source
-        when Symbol then value = @registers[source]
-        else value = source
-      end
-    end
-
     def jump(cond, where)
       if cond == true or @last_cmp.send(cond.to_sym, 0) == true
-         case where
-            when Symbol then @current_instruction = @labels[where]
-            else @current_instruction = where
-          end
+        if where.is_a?(Symbol) then
+          @current_instruction = @labels[where]
+        else
+          @current_instruction = where
+        end
       else
         @current_instruction += 1
       end
@@ -53,16 +57,30 @@ module Asm
 
     def calculate(op, destination, source = 1)
       @current_instruction += 1
-      value = value_of source
+      if source.is_a?(Symbol) then source = @registers[source] end
       case op
-        when '=' then @registers[destination] = value
-        when '==' then @last_cmp = @registers[destination] <=> value
-        else @registers[destination] = @registers[destination].send(op.to_sym, value)
+        when '=' then @registers[destination] = source
+        when '==' then @last_cmp = @registers[destination] <=> source
+        else @registers[destination] = @registers[destination].send(op.to_sym, source)
       end
     end
   end
 
   class ScriptParser
+    INSTRUCTIONS = [
+                    :mov,
+                    :inc,
+                    :dec,
+                    :cmp,
+                    :jmp,
+                    :je,
+                    :jne,
+                    :jl,
+                    :jle,
+                    :jg,
+                    :jge,
+                   ].freeze
+
     def initialize(&block)
       @instruction_sequence = []
       @labels = {}
@@ -80,8 +98,7 @@ module Asm
     private
 
     def method_missing(name, *args)
-      instructions = [:mov, :inc, :dec, :cmp, :jmp, :je, :jne, :jl, :jle, :jg, :jge]
-      if nil != instructions.find_index(name)
+      if nil != INSTRUCTIONS.find_index(name)
         @instruction_sequence << { 'name' => name, 'args' => args }
       else
         name
@@ -113,18 +130,3 @@ a = Asm.asm do
   jne cycle
   label finish
 end
-
-# def jump(cond, where)
-  # if cond == true or @last_cmp.send cond.to_sym, 0 == true
-     # case where
-        # when Symbol
-          # @current_instruction = @labels[where]
-        # else
-          # @current_instruction = where
-      # end
-  # else
-    # @current_instruction += 1
-  # end
-# end
-
-p a
